@@ -1,0 +1,259 @@
+package org.example;
+
+import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import java.awt.*;
+import java.sql.*;
+import java.util.Vector;
+
+public class PropertyPage extends JFrame {
+    private JPanel propertyPanel;
+    private JTable table;
+    private JTextField idField, typeField, squareFeetField, ownerIdField, rentPriceField, housePriceField;
+    private JTextField addressField, bedroomsField, bathroomsField, poolField, balconyField, parkingField;
+    private JTextArea descriptionArea;
+    private static final String URL = "jdbc:mysql://localhost:3306/db";
+    private static final String USER = "root";
+    private static final String PASSWORD = "";
+    public PropertyPage() {
+        setTitle("Property Page");
+        setSize(850, 600);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+        propertyPanel = new JPanel(new BorderLayout());
+        propertyPanel.setBackground(new Color(240, 248, 255)); 
+        JPanel formPanel = new JPanel();
+        formPanel.setLayout(new GridLayout(14, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        formPanel.setBackground(new Color(195, 215, 240));
+        idField = new JTextField();
+        typeField = new JTextField();
+        squareFeetField = new JTextField();
+        ownerIdField = new JTextField();
+        rentPriceField = new JTextField();
+        housePriceField = new JTextField();
+        addressField = new JTextField();
+        bedroomsField = new JTextField();
+        bathroomsField = new JTextField();
+        poolField = new JTextField();
+        balconyField = new JTextField();
+        parkingField = new JTextField();
+        descriptionArea = new JTextArea();
+        JScrollPane descriptionScrollPane = new JScrollPane(descriptionArea);
+        Dimension textFieldSize = new Dimension(150, 20);
+        descriptionArea.setPreferredSize(textFieldSize);
+        formPanel.add(new JLabel("ID:"));
+        formPanel.add(idField);
+        formPanel.add(new JLabel("Type:"));
+        formPanel.add(typeField);
+        formPanel.add(new JLabel("Square Feet:"));
+        formPanel.add(squareFeetField);
+        formPanel.add(new JLabel("Owner ID:"));
+        formPanel.add(ownerIdField);
+        formPanel.add(new JLabel("Rent Price:"));
+        formPanel.add(rentPriceField);
+        formPanel.add(new JLabel("House Price:"));
+        formPanel.add(housePriceField);
+        formPanel.add(new JLabel("Address:"));
+        formPanel.add(addressField);
+        formPanel.add(new JLabel("Bedrooms:"));
+        formPanel.add(bedroomsField);
+        formPanel.add(new JLabel("Bathrooms:"));
+        formPanel.add(bathroomsField);
+        formPanel.add(new JLabel("Pool (Yes/No):"));
+        formPanel.add(poolField);
+        formPanel.add(new JLabel("Balcony (Yes/No):"));
+        formPanel.add(balconyField);
+        formPanel.add(new JLabel("Parking (Yes/No):"));
+        formPanel.add(parkingField);
+        formPanel.add(new JLabel("Description:"));
+        formPanel.add(descriptionScrollPane);
+        propertyPanel.add(formPanel, BorderLayout.WEST);
+        table = new JTable();
+        loadDataFromDatabase(); 
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        propertyPanel.add(tableScrollPane, BorderLayout.CENTER);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        buttonPanel.setBackground(new Color(202, 202, 202));
+        JButton addButton = new JButton("Add");
+        JButton editButton = new JButton("Edit");
+        JButton removeButton = new JButton("Remove");
+        JButton clearButton = new JButton("Clear");
+        addButton.addActionListener(e -> addRecord());
+        editButton.addActionListener(e -> editRecord());
+        removeButton.addActionListener(e -> removeRecord());
+        clearButton.addActionListener(e -> clearFormFields());
+        buttonPanel.add(addButton);
+        buttonPanel.add(editButton);
+        buttonPanel.add(removeButton);
+        buttonPanel.add(clearButton);
+        propertyPanel.add(buttonPanel, BorderLayout.SOUTH);
+        table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) {
+                    fillFormFields(table.getSelectedRow());
+                }
+            }
+        });
+        add(propertyPanel); 
+        setVisible(true); 
+    }
+    private void loadDataFromDatabase() {
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet resultSet = null;
+        try {
+            connection = DriverManager.getConnection(URL, USER, PASSWORD);
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("SELECT * FROM properties");
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            Vector<String> columnNames = new Vector<>();
+            for (int i = 1; i <= columnCount; i++) {
+                columnNames.add(metaData.getColumnName(i));
+            }
+            Vector<Vector<Object>> data = new Vector<>();
+            while (resultSet.next()) {
+                Vector<Object> row = new Vector<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    row.add(resultSet.getObject(i));
+                }
+                data.add(row);
+            }
+            table.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error loading data from database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+    private void addRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            if (idField.getText().isEmpty() || typeField.getText().isEmpty() || rentPriceField.getText().isEmpty() || housePriceField.getText().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill all the required fields.");
+                return;
+            }
+            String checkQuery = "SELECT COUNT(*) FROM properties WHERE ID=?";
+            PreparedStatement checkStatement = connection.prepareStatement(checkQuery);
+            checkStatement.setInt(1, Integer.parseInt(idField.getText())); 
+            ResultSet rs = checkStatement.executeQuery();
+            
+            if (rs.next() && rs.getInt(1) > 0) {
+                JOptionPane.showMessageDialog(this, "ID already exists. Please choose a different ID.");
+                return; 
+            }
+            String query = "INSERT INTO properties (ID, Type, Square_Feet, Owner_ID, Rent_Price, House_Price, Address, Bedrooms, Bathrooms, Pool, Balcony, Parking, Description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setInt(1, Integer.parseInt(idField.getText())); 
+            statement.setString(2, typeField.getText());
+            statement.setString(3, squareFeetField.getText());
+            statement.setString(4, ownerIdField.getText());
+            try {
+                statement.setFloat(5, Float.parseFloat(rentPriceField.getText()));  
+                statement.setFloat(6, Float.parseFloat(housePriceField.getText()));  
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Please enter valid numeric values for Rent Price and House Price.");
+                return; 
+            }
+            
+            statement.setString(7, addressField.getText());
+            statement.setString(8, bedroomsField.getText());
+            statement.setString(9, bathroomsField.getText());
+            statement.setString(10, poolField.getText());
+            statement.setString(11, balconyField.getText());
+            statement.setString(12, parkingField.getText());
+            statement.setString(13, descriptionArea.getText());
+            statement.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Record added successfully!");
+            loadDataFromDatabase();
+            clearFormFields();
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error adding record: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void editRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "UPDATE properties SET Type=?, Square_Feet=?, Owner_ID=?, Rent_Price=?, House_Price=?, Address=?, Bedrooms=?, Bathrooms=?, Pool=?, Balcony=?, Parking=?, Description=? WHERE ID=?";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setString(1, typeField.getText());
+            statement.setString(2, squareFeetField.getText());
+            statement.setString(3, ownerIdField.getText());
+            statement.setString(4, rentPriceField.getText());
+            statement.setString(5, housePriceField.getText());
+            statement.setString(6, addressField.getText());
+            statement.setString(7, bedroomsField.getText());
+            statement.setString(8, bathroomsField.getText());
+            statement.setString(9, poolField.getText());
+            statement.setString(10, balconyField.getText());
+            statement.setString(11, parkingField.getText());
+            statement.setString(12, descriptionArea.getText());
+            statement.setString(13, idField.getText());
+            statement.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Record updated successfully!");
+            loadDataFromDatabase();
+            clearFormFields();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error updating record.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    private void removeRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String query = "DELETE FROM properties WHERE ID=?";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setString(1, idField.getText());
+            int response = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this record?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+            if (response == JOptionPane.YES_OPTION) {
+                statement.executeUpdate();
+                JOptionPane.showMessageDialog(this, "Record deleted successfully!");
+                loadDataFromDatabase();
+                clearFormFields();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error deleting record.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    private void fillFormFields(int selectedRow) {
+        idField.setText(table.getValueAt(selectedRow, 0).toString());
+        typeField.setText(table.getValueAt(selectedRow, 1).toString());
+        squareFeetField.setText(table.getValueAt(selectedRow, 2).toString());
+        ownerIdField.setText(table.getValueAt(selectedRow, 3).toString());
+        rentPriceField.setText(table.getValueAt(selectedRow, 4).toString());
+        housePriceField.setText(table.getValueAt(selectedRow, 5).toString());
+        addressField.setText(table.getValueAt(selectedRow, 6).toString());
+        bedroomsField.setText(table.getValueAt(selectedRow, 7).toString());
+        bathroomsField.setText(table.getValueAt(selectedRow, 8).toString());
+        poolField.setText(table.getValueAt(selectedRow, 9).toString());
+        balconyField.setText(table.getValueAt(selectedRow, 10).toString());
+        parkingField.setText(table.getValueAt(selectedRow, 11).toString());
+        descriptionArea.setText(table.getValueAt(selectedRow, 12).toString());
+    }
+    private void clearFormFields() {
+        idField.setText("");
+        typeField.setText("");
+        squareFeetField.setText("");
+        ownerIdField.setText("");
+        rentPriceField.setText("");
+        housePriceField.setText("");
+        addressField.setText("");
+        bedroomsField.setText("");
+        bathroomsField.setText("");
+        poolField.setText("");
+        balconyField.setText("");
+        parkingField.setText("");
+        descriptionArea.setText("");
+    }
+}

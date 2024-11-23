@@ -1,0 +1,159 @@
+package org.example;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+
+public class SalesPage extends JPanel {
+    private JTextField propertyIdField, clientIdField;
+    private JButton selectPropertyButton, selectClientButton, sellButton, viewSalesTableButton,clearButton;
+    private Connection connection;
+
+    public SalesPage() {
+        setLayout(new BorderLayout());
+        try {
+            connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/db", "root", "");
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Database connection failed: " + e.getMessage());
+            return;
+        }
+
+        JPanel inputPanel = new JPanel();
+        inputPanel.setLayout(new GridLayout(3, 2, 10, 10));
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        inputPanel.setBackground(new Color(195, 215, 240));
+        selectPropertyButton = new JButton("Select Property");
+        selectClientButton = new JButton("Select Client");
+        propertyIdField = new JTextField();
+        clientIdField = new JTextField();
+        sellButton = new JButton("Sell");
+        viewSalesTableButton = new JButton("View Sales Table");
+        clearButton = new JButton("Clear");
+        clearButton.addActionListener(e -> clearFields());
+        inputPanel.add(selectPropertyButton);
+        inputPanel.add(selectClientButton);
+        inputPanel.add(new JLabel("Property ID:"));
+        inputPanel.add(propertyIdField);
+        inputPanel.add(new JLabel("Client ID:"));
+        inputPanel.add(clientIdField);
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(1, 3, 20, 10));
+        buttonPanel.add(sellButton);
+        buttonPanel.add(viewSalesTableButton);
+        buttonPanel.add(clearButton);
+
+        add(inputPanel, BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        selectPropertyButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayTable("SELECT ID, type, Owner_ID, Rent_Price, House_Price FROM properties", "Select a Property", propertyIdField);
+            }
+        });
+
+        selectClientButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayTable("SELECT ID, First_Name,Last_Name, Phone FROM clients", "Select a Client", clientIdField);
+            }
+        });
+
+        sellButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String propertyId = propertyIdField.getText().trim();
+                String clientId = clientIdField.getText().trim();
+
+                if (propertyId.isEmpty() || clientId.isEmpty()) {
+                    JOptionPane.showMessageDialog(SalesPage.this, "Please fill in both Property ID and Client ID.");
+                    return;
+                }
+
+                try {
+                   
+                    String checkSoldQuery = "SELECT * FROM sales WHERE property_id = ? AND status = 'Sold'";
+                    PreparedStatement checkStmt = connection.prepareStatement(checkSoldQuery);
+                    checkStmt.setString(1, propertyId);
+                    ResultSet resultSet = checkStmt.executeQuery();
+
+                    if (resultSet.next()) {
+                        JOptionPane.showMessageDialog(SalesPage.this, "This property has already been sold.");
+                    } else {
+                        
+                        String insertQuery = "INSERT INTO sales (property_id, client_id, status) VALUES (?, ?, 'Sold')";
+                        PreparedStatement insertStmt = connection.prepareStatement(insertQuery);
+                        insertStmt.setString(1, propertyId);
+                        insertStmt.setString(2, clientId);
+
+                        int rowsInserted = insertStmt.executeUpdate();
+                        if (rowsInserted > 0) {
+                            JOptionPane.showMessageDialog(SalesPage.this, "Property sold successfully!");
+                        } else {
+                            JOptionPane.showMessageDialog(SalesPage.this, "Failed to sell the property.");
+                        }
+                    }
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(SalesPage.this, "Error: " + ex.getMessage());
+                }
+            }
+        });
+
+        viewSalesTableButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayTable("SELECT * FROM sales", "Sales Table", null);
+            }
+        });
+
+    }
+    private void clearFields() {
+        propertyIdField.setText("");
+        clientIdField.setText("");
+    }
+
+    private void displayTable(String query, String title, JTextField idField) {
+        JDialog dialog = new JDialog((Frame) null, title, true);
+        dialog.setSize(600, 400);
+        dialog.setLocationRelativeTo(this);
+
+        DefaultTableModel model = new DefaultTableModel();
+        JTable table = new JTable(model);
+
+        try {
+            Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+
+            for (int i = 1; i <= columnCount; i++) {
+                model.addColumn(metaData.getColumnName(i));
+            }
+
+            while (rs.next()) {
+                Object[] row = new Object[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = rs.getObject(i + 1);
+                }
+                model.addRow(row);
+            }
+
+   
+            table.getSelectionModel().addListSelectionListener(event -> {
+                if (!event.getValueIsAdjusting() && idField != null && table.getSelectedRow() != -1) {
+                    idField.setText(table.getValueAt(table.getSelectedRow(), 0).toString());
+                    dialog.dispose();
+                }
+            });
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error fetching data: " + e.getMessage());
+        }
+
+        JScrollPane scrollPane = new JScrollPane(table);
+        dialog.add(scrollPane);
+        dialog.setVisible(true);
+    }
+}

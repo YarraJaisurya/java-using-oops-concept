@@ -1,0 +1,120 @@
+package org.example;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class Dashboard extends JFrame implements ActionListener {
+    private JPanel sidebar;
+    private JPanel contentPanel;
+    public Dashboard() {
+        setTitle("Dashboard");
+        setSize(800, 500);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+        setLocationRelativeTo(null);
+        sidebar = new JPanel();
+        sidebar.setPreferredSize(new Dimension(200, 500));
+        sidebar.setBackground(new Color(1, 54, 94)); 
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        JLabel logoLabel = new JLabel("SkyLine Estates", JLabel.CENTER);
+        logoLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        logoLabel.setForeground(Color.WHITE);
+        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 20))); 
+        sidebar.add(logoLabel);
+        addSidebarButton("Property");
+        addSidebarButton("Images");
+        addSidebarButton("Owner"); 
+        addSidebarButton("Client"); 
+        addSidebarButton("Sale");
+        add(sidebar, BorderLayout.WEST);
+        contentPanel = new JPanel();
+        contentPanel.setLayout(new BorderLayout());
+        add(contentPanel, BorderLayout.CENTER);
+        addImageToContentPanel();
+
+        setVisible(true);
+    }
+
+    private void addSidebarButton(String text) {
+        JButton button = new JButton(text);
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+        button.setMaximumSize(new Dimension(180, 40));
+        button.setForeground(Color.BLACK);
+        button.setBackground(new Color(198, 219, 255)); 
+        button.setFocusPainted(false);
+        button.addActionListener(this);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 20))); 
+        sidebar.add(button);
+    }
+    private void addImageToContentPanel() {
+        ImageIcon imageIcon = new ImageIcon(getClass().getResource("/images/dashImage.png"));
+        JLabel imageLabel = new JLabel(imageIcon);
+        Image originalImage = imageIcon.getImage();
+        Image scaledImage = originalImage.getScaledInstance(500, 280, Image.SCALE_SMOOTH);
+        imageLabel.setIcon(new ImageIcon(scaledImage));
+        imageLabel.setHorizontalAlignment(JLabel.CENTER);
+        contentPanel.add(imageLabel, BorderLayout.CENTER);
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        String action = e.getActionCommand();
+        if ("Owner".equals(action)) {
+            openOwnerPage();
+        } else if ("Client".equals(action)) {
+            openClientPage(); 
+        } else if ("Property".equals(action)) {
+            openPropertyPage();
+        } else if ("Images".equals(action)) {
+            openPropertyTypes();
+        } else if ("Sale".equals(action)) {
+            openSalesPage();
+        } else {
+            displayContent(action);
+        }
+    }
+
+    private void openOwnerPage() {
+        Owner ownerPage = new Owner();
+        ownerPage.setVisible(true); 
+    }
+
+    private void openClientPage() {
+        Client clientPage = new Client();
+        clientPage.setVisible(true); 
+    }
+
+    private void openPropertyPage() {
+        JFrame propertyFrame = new JFrame("Property Page");
+        propertyFrame.setSize(800, 500); 
+        propertyFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
+        propertyFrame.add(new PropertyPage()); 
+        propertyFrame.setLocationRelativeTo(this); 
+        propertyFrame.setVisible(true); 
+    }
+    private void openPropertyTypes() {
+        JFrame propertyTypeFrame = new JFrame("Property Types");
+        propertyTypeFrame.setSize(600, 400);
+        propertyTypeFrame.add(new PropertyTypes());
+        propertyTypeFrame.setLocationRelativeTo(this);
+        propertyTypeFrame.setVisible(true);
+    }
+    private void openSalesPage() {
+        JFrame salesPageFrame = new JFrame("Sales Management");
+        salesPageFrame.setSize(800, 500);
+        salesPageFrame.add(new SalesPage());
+        salesPageFrame.setLocationRelativeTo(this);
+        salesPageFrame.setVisible(true);
+
+    }
+    private void displayContent(String title) {
+        contentPanel.removeAll();
+        JLabel titleLabel = new JLabel(title, JLabel.CENTER);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        contentPanel.add(titleLabel, BorderLayout.CENTER);
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
+}

@@ -1,0 +1,189 @@
+package org.example;
+import javax.swing.*;
+import java.awt.*;
+import java.sql.*;
+import java.util.Vector;
+
+public class Client extends JFrame {
+    private JPanel clientPanel;
+    private JTable table;
+    private JTextField idField, firstNameField, lastNameField, phoneField, emailField;
+    private JTextArea addressArea;
+    private static final String URL = "jdbc:mysql://localhost:3306/db";
+    private static final String USER = "root";
+    private static final String PASSWORD = "";
+    public Client() {
+        setTitle("Client Management");
+        setSize(800, 500);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+        clientPanel = new JPanel(new BorderLayout());
+        clientPanel.setBackground(Color.BLACK); 
+        JPanel formPanel = new JPanel();
+        formPanel.setLayout(new GridLayout(6, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        formPanel.setBackground(new Color(195, 215, 240)); 
+        idField = new JTextField();
+        firstNameField = new JTextField();
+        lastNameField = new JTextField();
+        phoneField = new JTextField();
+        emailField = new JTextField();
+        addressArea = new JTextArea();
+        JScrollPane addressScrollPane = new JScrollPane(addressArea);
+        Dimension textFieldSize = new Dimension(150, 25);
+        idField.setPreferredSize(textFieldSize);
+        firstNameField.setPreferredSize(textFieldSize);
+        lastNameField.setPreferredSize(textFieldSize);
+        phoneField.setPreferredSize(textFieldSize);
+        emailField.setPreferredSize(textFieldSize);
+        addressArea.setPreferredSize(new Dimension(150, 50)); 
+        formPanel.add(new JLabel("ID:"));
+        formPanel.add(idField);
+        formPanel.add(new JLabel("First Name:"));
+        formPanel.add(firstNameField);
+        formPanel.add(new JLabel("Last Name:"));
+        formPanel.add(lastNameField);
+        formPanel.add(new JLabel("Phone:"));
+        formPanel.add(phoneField);
+        formPanel.add(new JLabel("Email:"));
+        formPanel.add(emailField);
+        formPanel.add(new JLabel("Address:"));
+        formPanel.add(addressScrollPane);
+        clientPanel.add(formPanel, BorderLayout.WEST);
+        table = new JTable();
+        loadDataFromDatabase(); 
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        clientPanel.add(tableScrollPane, BorderLayout.CENTER);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        buttonPanel.setBackground(new Color(202,202,202)); 
+        JButton addButton = new JButton("Add");
+        JButton editButton = new JButton("Edit");
+        JButton removeButton = new JButton("Remove");
+        JButton clearButton = new JButton("Clear");
+        addButton.addActionListener(e -> addRecord());
+        editButton.addActionListener(e -> editRecord());
+        removeButton.addActionListener(e -> removeRecord());
+        clearButton.addActionListener(e -> clearFormFields());
+
+        buttonPanel.add(addButton);
+        buttonPanel.add(editButton);
+        buttonPanel.add(removeButton);
+        buttonPanel.add(clearButton);
+        clientPanel.add(buttonPanel, BorderLayout.SOUTH);
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                int selectedRow = table.getSelectedRow();
+                if (selectedRow != -1) {
+                    fillFormFields(selectedRow);
+                }
+            }
+        });
+        add(clientPanel);
+    }
+    private void loadDataFromDatabase() {
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            connection = DriverManager.getConnection(URL, USER, PASSWORD);
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("SELECT * FROM clients");
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            Vector<String> columnNames = new Vector<>();
+            for (int i = 1; i <= columnCount; i++) {
+                columnNames.add(metaData.getColumnName(i));
+            }
+            Vector<Vector<Object>> data = new Vector<>();
+            while (resultSet.next()) {
+                Vector<Object> row = new Vector<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    row.add(resultSet.getObject(i));
+                }
+                data.add(row);
+            }
+            table.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error loading data from database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+    private void fillFormFields(int selectedRow) {
+        idField.setText(table.getValueAt(selectedRow, 0).toString());
+        firstNameField.setText(table.getValueAt(selectedRow, 1).toString());
+        lastNameField.setText(table.getValueAt(selectedRow, 2).toString());
+        phoneField.setText(table.getValueAt(selectedRow, 3).toString());
+        emailField.setText(table.getValueAt(selectedRow, 4).toString());
+        addressArea.setText(table.getValueAt(selectedRow, 5).toString());
+    }
+
+    private void addRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String sql = "INSERT INTO clients (id,first_name, last_name, phone, email, address) VALUES (?,?, ?, ?, ?, ?)";
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            preparedStatement.setInt(1, Integer.parseInt(idField.getText())); // Assuming 'idField' is a JTextField where user inputs the ID
+            preparedStatement.setString(2, firstNameField.getText());
+            preparedStatement.setString(3, lastNameField.getText());
+            preparedStatement.setString(4, phoneField.getText());
+            preparedStatement.setString(5, emailField.getText());
+            preparedStatement.setString(6, addressArea.getText());
+            preparedStatement.executeUpdate();
+            loadDataFromDatabase();
+            clearFormFields();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error adding record to database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void editRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String sql = "UPDATE clients SET first_name = ?, last_name = ?, phone = ?, email = ?, address = ? WHERE id = ?";
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            preparedStatement.setString(1, firstNameField.getText());
+            preparedStatement.setString(2, lastNameField.getText());
+            preparedStatement.setString(3, phoneField.getText());
+            preparedStatement.setString(4, emailField.getText());
+            preparedStatement.setString(5, addressArea.getText());
+            preparedStatement.setInt(6, Integer.parseInt(idField.getText()));
+            preparedStatement.executeUpdate();
+            loadDataFromDatabase();
+            clearFormFields();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error editing record in database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void removeRecord() {
+        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            String sql = "DELETE FROM clients WHERE id = ?";
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            preparedStatement.setInt(1, Integer.parseInt(idField.getText()));
+            preparedStatement.executeUpdate();
+            loadDataFromDatabase();
+            clearFormFields();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Error removing record from database.", "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void clearFormFields() {
+        idField.setText("");
+        firstNameField.setText("");
+        lastNameField.setText("");
+        phoneField.setText("");
+        emailField.setText("");
+        addressArea.setText("");
+    }
+}
